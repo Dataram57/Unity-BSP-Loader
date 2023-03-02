@@ -1,0 +1,16 @@
+---- vis / ericw-tools v0.18.1 ----
+running with 12 threads
+testlevel = 4
+LoadBSPFile: 'C:\Users\kebabmaster\Desktop\Kolekcja\Unity stuff\BSP another test\Assets\maps/test1.bsp'
+BSP is version BSP2
+    39 leafs
+    97 portals
+Calculating Base Vis:
+0....1....2....3....4....5....6....7....8....9....
+Calculating Full Vis:
+0....1....2....3....4....5....6....7....8....9....
+average leafs visible: 31
+c_noclip: 0
+c_chains: 7169
+visdatasize:197  compressed from 195
+C:\projects\ericw-tools\common\bsputils.cc:65: Q_assert(fnum >= 0 && fnum < bsp->numfaces) failed.
