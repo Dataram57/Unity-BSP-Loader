@@ -1,3 +1,7 @@
+*/autosave/*.map
 *-compile.map
+*.map.meta
+*.prt.meta
 *.prt
+*.log.meta
 *.log

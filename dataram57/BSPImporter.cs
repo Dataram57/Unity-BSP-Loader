@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using System.Text;
 
 namespace Dataram57.BSPImporter
 {
     public class BSPImporter : EditorWindow
     {
-        public float scale=0.5f;
+        private BSPImportConfig configObject;
 
         //static BSPImporter window;    //unused
-        [MenuItem("Tools/Dataram_57/BSP Importer")]
+        [MenuItem("Tools/Dataram57/BSP Importer")]
         public static void Open()
         {
             //window = (BSPImporter)GetWindow(typeof(BSPImporter));
@@ -20,22 +21,21 @@ namespace Dataram57.BSPImporter
 
         private void OnGUI()
         {
-            GUILayout.Label("Import scale:");
-            scale = EditorGUILayout.FloatField(scale);
-            GUILayout.Label("Actions");
+            GUILayout.Label("Select BSP import config:");
+            configObject = (BSPImportConfig)EditorGUILayout.ObjectField(configObject, typeof(BSPImportConfig), true);
+            GUILayout.Label("Actions:");
             if (GUILayout.Button("Import BSP"))
-            {
-                string path = EditorUtility.OpenFilePanel("Select BSP", "", "bsp");
-                if (File.Exists(path))
-                {
-                    ImportBSP(path);
-                }
-            }
+                ImportBSP();
         }
 
         public void DevLog(string obj)
         {
-            Debug.Log(obj);
+            //Debug.Log(obj);
+        }
+
+        public void ErrLog(string obj)
+        {
+            Debug.LogError(obj);
         }
 
         public void Log(string obj)
@@ -43,15 +43,14 @@ namespace Dataram57.BSPImporter
             Debug.Log(obj);
         }
 
-        public void ImportBSP(string path)
+        public void ImportBSP()
         {
-            //vars
+            //temp vars
             int i, f, g, h, j, k;
-            uint I, F, G, H, J, K;
-            string temp;
+            uint I;//, F, G, H, J, K;
 
             //Main init
-            FileStream stream = File.Open(path, FileMode.Open);
+            FileStream stream = File.Open(configObject.targetBSPFilePath, FileMode.Open);
             if (stream == null)
                 return;
             BinaryReader br = new BinaryReader(stream);
@@ -80,6 +79,7 @@ namespace Dataram57.BSPImporter
 
             //Load texture names
             List<string> textures=new List<string>();
+            List<Vector2Int> texturesSize = new List<Vector2Int>();
             br.SetOffset(bspHeader.miptex_ofs);
             int num_textures = br.ReadInt32();
             Log("Number of textures: " + num_textures);
@@ -93,6 +93,7 @@ namespace Dataram57.BSPImporter
                 BSPMipTex mipTex = br.ReadMipTex();
                 DevLog("Texture: " + mipTex.name);
                 textures.Add(mipTex.name);
+                texturesSize.Add(new Vector2Int((int)mipTex.width,(int)mipTex.height));
             }
 
             //Read edges
@@ -113,7 +114,7 @@ namespace Dataram57.BSPImporter
                 v.z = v.y;
                 v.y = y;
 
-                v *= scale;
+                v *= configObject.meshScale;
                 verticies.Add(v);
             }
 
@@ -184,6 +185,7 @@ namespace Dataram57.BSPImporter
                     modelFaceVerticiesId.Add(faceVertexIds.ToArray());
                     modelFaceTextureInfo.Add(texInfo);
                 }
+
                 //create mesh for the model
                 Mesh mesh = new Mesh();
                 //convert array of vertex ids into an array of vector3
@@ -198,6 +200,7 @@ namespace Dataram57.BSPImporter
                 List<int>[] subMeshTriangles = new List<int>[modelUsedTextureIds.Count];
                 for (f = subMeshTriangles.Length - 1; f > -1; f--)
                     subMeshTriangles[f] = new List<int>();
+                List<Vector2> meshUVs = new List<Vector2>();
                 //loop
                 for (f = modelFaceTextureInfo.Count - 1; f > -1; f--)
                 {
@@ -210,7 +213,7 @@ namespace Dataram57.BSPImporter
                             break;
                     if (g == -1)
                     {
-                        Log("Something really weird has just happend: " + texInfo.texture_id);
+                        ErrLog("Something really weird has just happend: " + texInfo.texture_id);
                         string s = "";
                         foreach (uint b in modelUsedTextureIds)
                             s += b.ToString() + " ";
@@ -229,14 +232,25 @@ namespace Dataram57.BSPImporter
                         subMeshTriangles[g].Add(h + k + 2);
                         k++;
                     }
-                    //add vertexes
+                    //add vertexes (some vertexes may have same positions, but diffrent UVs)
                     uint[] faceVerts = modelFaceVerticiesId[f];
                     foreach (uint V in faceVerts)
                         meshVerticies.Add(verticies[(int)V]);
-                    //h++
+                    //add uvs
+                    //https://www.flipcode.com/archives/Quake_2_BSP_File_Format.shtml
+                    //u = x * u_axis.x + y * u_axis.y + z * u_axis.z + u_offset
+                    //v = x * v_axis.x + y * v_axis.y + z * v_axis.z + v_offset
+                    foreach (uint V in faceVerts) {
+                        Vector3 v = verticies[(int)V];
+                        meshUVs.Add(new Vector2(
+                            ((v.x * texInfo.s.x) + (v.z * texInfo.s.y) + (v.y * texInfo.s.z) + texInfo.s_dist * configObject.meshScale) / texturesSize[(int)texInfo.texture_id].x,
+                            -((v.x * texInfo.t.x) + (v.z * texInfo.t.y) + (v.y * texInfo.t.z) + texInfo.t_dist * configObject.meshScale) / texturesSize[(int)texInfo.texture_id].y
+                            ) / configObject.meshScale);
+                    }
                 }
                 //assign data to mesh
                 mesh.SetVertices(meshVerticies);
+                mesh.SetUVs(0, meshUVs);
                 mesh.subMeshCount = subMeshTriangles.Length;
                 for (f = subMeshTriangles.Length - 1; f > -1; f--)
                 {
@@ -245,6 +259,8 @@ namespace Dataram57.BSPImporter
                 mesh.RecalculateNormals();
                 mesh.RecalculateTangents();
                 mesh.Optimize();
+
+
                 //create GameObject
                 GameObject go = new GameObject();
                 //assign mesh
@@ -252,7 +268,25 @@ namespace Dataram57.BSPImporter
                 mf.mesh = mesh;
                 //allow render
                 MeshRenderer mr = go.AddComponent<MeshRenderer>();
-                mr.materials = new Material[subMeshTriangles.Length];
+                //apply materials
+                mr.materials = new Material[modelUsedTextureIds.Count];
+                Log(configObject.materialsAssetsFilePath);
+                if (AssetDatabase.IsValidFolder(configObject.materialsAssetsFilePath)) {
+                    Material[] materials = new Material[modelUsedTextureIds.Count];
+                    Material mat;
+                    g = modelUsedTextureIds.Count;
+                    while (--g > -1)
+                    {
+                        mat = (Material)AssetDatabase.LoadAssetAtPath(configObject.materialsAssetsFilePath + "/" + textures[(int)modelUsedTextureIds[g]] + ".mat", typeof(Material));
+                        if (mat != null)
+                            materials[g] = mat;
+                        else
+                            ErrLog("Couldn't find " + textures[(int)modelUsedTextureIds[g]] + " material");
+                    }
+                    mr.materials = materials;
+                    mr.sharedMaterials = materials;
+                }
+                
             }
 
             //Close

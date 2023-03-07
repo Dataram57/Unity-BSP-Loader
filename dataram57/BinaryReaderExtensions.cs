@@ -64,7 +64,7 @@ namespace Dataram57.BSPImporter
         public static BSPMipTex ReadMipTex(this BinaryReader br)
         {
             BSPMipTex mipTex = new BSPMipTex();
-            mipTex.name = System.Text.Encoding.UTF8.GetString(br.ReadBytes(16));
+            mipTex.name = System.Text.Encoding.UTF8.GetString(br.ReadBytes(16)).Replace("\0", "");
             mipTex.width = br.ReadUInt32();
             mipTex.height = br.ReadUInt32();
             mipTex.ofs1 = br.ReadUInt32();
