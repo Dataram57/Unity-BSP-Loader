@@ -15,5 +15,5 @@ To improve your mapping productivity, it would be good if you wouldn't have to s
 ...nahhh, will write later :)
 
 Some pictures:
-![Screenshot from the TrenchBroom](Assets/dataram57/tb_ss1.png)
-![Screenshot from the Unity](Assets/dataram57/u_ss1.png)
+![Screenshot from the TrenchBroom](dataram57/tb_ss1.PNG)
+![Screenshot from the Unity](dataram57/u_ss1.PNG)
